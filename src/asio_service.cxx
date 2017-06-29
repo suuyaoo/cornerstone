@@ -435,7 +435,7 @@ void _timer_handler_(ptr<delayed_task>& task, asio::error_code err) {
 asio_service_impl::asio_service_impl()
     : io_svc_(), log_flush_tm_(io_svc_), continue_(1), logger_list_lock_(), loggers_(), stopping_(false), stopping_lock_(), stopping_cv_() {
     // set expires_after to a very large value so that this will not affect the overall performance
-    log_flush_tm_.expires_after(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(1)));
+    log_flush_tm_.expires_from_now(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::seconds(1)));
     log_flush_tm_.async_wait(std::bind(&asio_service_impl::flush_all_loggers, this, std::placeholders::_1));
     unsigned int cpu_cnt = std::thread::hardware_concurrency();
     if (cpu_cnt == 0) {
@@ -463,7 +463,7 @@ void asio_service_impl::worker_entry() {
 
 void asio_service_impl::flush_all_loggers(asio::error_code err) {
     if (continue_.load() == 1) {
-        log_flush_tm_.expires_after(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::hours(1000)));
+        log_flush_tm_.expires_from_now(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::hours(1000)));
         log_flush_tm_.async_wait(std::bind(&asio_service_impl::flush_all_loggers, this, std::placeholders::_1));
     }
 
@@ -546,7 +546,7 @@ void asio_service::schedule(ptr<delayed_task>& task, int32 milliseconds) {
     }
 
     asio::steady_timer* timer = static_cast<asio::steady_timer*>(task->get_impl_context());
-    timer->expires_after(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(milliseconds)));
+    timer->expires_from_now(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::milliseconds(milliseconds)));
     timer->async_wait(std::bind(&_timer_handler_, task, std::placeholders::_1));
 }
 

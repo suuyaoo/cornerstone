@@ -1,0 +1,24 @@
+set(TESTS_SOURCES
+    src/test_async_result.cxx
+    src/test_runner.cxx
+    src/test_strfmt.cxx
+    src/test_buffer.cxx
+    src/test_serialization.cxx
+    src/test_scheduler.cxx
+    src/test_logger.cxx
+    src/test_impls.cxx
+    src/test_log_store.cxx
+    src/test_ptr.cxx
+    src/test_everything_together.cxx
+    ../src/buffer.cxx
+    ../src/snapshot.cxx
+    ../src/snapshot_sync_req.cxx
+    ../src/srv_config.cxx
+    ../src/cluster_config.cxx
+    ../src/asio_service.cxx
+    ../src/raft_server.cxx
+    ../src/peer.cxx
+    ../src/fs_log_store.cxx
+)
+
+add_executable(test_raft ${TESTS_SOURCES})

@@ -19,7 +19,7 @@
 
 using namespace cornerstone;
 
-ptr<buffer> cluster_config::serialize() {
+ptr<buffer> cluster_config::serialize() const {
     size_t sz = 2 * sz_ulong + sz_int;
     std::vector<ptr<buffer>> srv_buffs;
     for (cluster_config::const_srv_itor it = servers_.begin(); it != servers_.end(); ++it) {

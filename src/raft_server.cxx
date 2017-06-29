@@ -272,7 +272,7 @@ void raft_server::handle_election_timeout() {
 }
 
 void raft_server::request_vote() {
-    l_->info(sstrfmt("requestVote started with term %llu").fmt(state_->get_term()));
+    l_->info(sstrfmt("request Vote started with term %llu").fmt(state_->get_term()));
     state_->set_voted_for(id_);
     ctx_->state_mgr_->save_state(*state_);
     votes_granted_ += 1;
@@ -282,6 +282,7 @@ void raft_server::request_vote() {
     if (votes_granted_ > (int32)(peers_.size() + 1) / 2) {
         election_completed_ = true;
         become_leader();
+        l_->info("Server is elected as leader as the only server");
         return;
     }
 
