@@ -74,13 +74,31 @@ std::mutex lock1;
 std::mutex stop_test_lock1;
 std::condition_variable stop_test_cv1;
 
-class simple_state_mgr: public state_mgr{
+class simple_state_mgr: public state_mgr {
 public:
     simple_state_mgr(int32 srv_id)
         : srv_id_(srv_id) {
-        store_path_ = sstrfmt("store%d").fmt(srv_id_);
+        store_path_ = sstrfmt("raft_store_%d").fmt(srv_id_);
+        conf_path_ = sstrfmt("raft_conf_%d").fmt(srv_id_);
+        state_path_ = sstrfmt("raft_state_%d").fmt(srv_id_);
         conf_ = cs_new<cluster_config>();
-        conf_->get_servers().push_back(cs_new<srv_config>(srv_id, sstrfmt("tcp://127.0.0.1:900%d").fmt(srv_id)));
+
+        std::ifstream fs;
+        fs.open(conf_path_, std::ios::binary | std::ios::ate);
+
+        if (!fs.is_open()) {
+            conf_->get_servers().push_back(cs_new<srv_config>(srv_id, sstrfmt("tcp://127.0.0.1:900%d").fmt(srv_id)));
+        }
+        else {
+            auto size = fs.tellg();
+            if (size > 0) {
+                ptr<buffer> str = buffer::alloc(size);
+                fs.seekg(0);
+                if (fs.read((char*)str->data(), size)) {
+                    conf_ = cluster_config::deserialize(*str);
+                }
+            }
+        }
     }
 
 public:
@@ -92,12 +110,63 @@ public:
     {
         std::cout << "save config " << srv_id_ << std::endl;
         ptr<buffer> bf = config.serialize();
+        std::fstream fs;
+
+        fs.open(conf_path_);
+
+        if (!fs.is_open()) {
+            fs.clear();
+            fs.open(conf_path_, std::ios::out); //Create file.
+            fs.close();
+            fs.open(conf_path_);
+        }
+        fs.write((const char*)bf->data(), bf->size());
+        fs.flush();
         conf_ = cluster_config::deserialize(*bf);
     }
     
-    virtual void save_state(const srv_state& state) {}
-    virtual ptr<srv_state> read_state() {
-        return cs_new<srv_state>();
+    virtual void save_state(const srv_state& state)
+    {
+        std::fstream fs;
+
+        fs.open(state_path_);
+
+        if (!fs.is_open()) {
+            fs.clear();
+            fs.open(state_path_, std::ios::out); //Create file.
+            fs.close();
+            fs.open(state_path_);
+        }
+        ptr<buffer> bf = buffer::alloc(1024);
+        bf->put(state.get_term());
+        bf->put(state.get_commit_idx());
+        bf->put(state.get_voted_for());
+        bf->pos(0);
+        fs.write((const char*)bf->data(), bf->size());
+        fs.flush();
+    }
+
+    virtual ptr<srv_state> read_state()
+    {
+        ptr<srv_state> st = cs_new<srv_state>();
+
+        std::ifstream fs;
+        fs.open(state_path_, std::ios::binary | std::ios::ate);
+
+        if (fs.is_open()) {
+            auto size = fs.tellg();
+            if (size > 0) {
+                ptr<buffer> str = buffer::alloc(size);
+                fs.seekg(0);
+                if (fs.read((char*)str->data(), size)) {
+                    st->set_term(str->get_ulong());
+                    st->set_commit_idx(str->get_ulong());
+                    st->set_voted_for(str->get_int());
+                }
+            }
+        }
+
+        return st;
     }
 
     virtual ptr<log_store> load_log_store() {
@@ -116,6 +185,8 @@ public:
 private:
     int32 srv_id_;
     std::string store_path_;
+    std::string conf_path_;
+    std::string state_path_;
     ptr<cluster_config> conf_;
 };
 
@@ -199,7 +270,7 @@ void run_raft_instance_with_asio(int srv_id) {
     ptr<delayed_task_scheduler> scheduler = asio_svc_;
     ptr<rpc_client_factory> rpc_cli_factory = asio_svc_;
     context* ctx(new context(smgr, smachine, listener, l, rpc_cli_factory, scheduler, params));
-    ptr<raft_server> server(cs_new<raft_server>(ctx, srv_id == 1));
+    ptr<raft_server> server(cs_new<raft_server>(ctx));
     
     listener->listen(server);
     

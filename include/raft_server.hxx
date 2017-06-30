@@ -21,40 +21,40 @@
 namespace cornerstone {
     class raft_server {
     public:
-        raft_server(context* ctx, bool start_election = true)
+        raft_server(context* ctx)
         : leader_(-1),
-            id_(ctx->state_mgr_->server_id()),
-            votes_responded_(0),
-            votes_granted_(0),
-            quick_commit_idx_(0),
-            election_completed_(true),
-            config_changing_(false),
-            catching_up_(false),
-            stopping_(false),
-            steps_to_down_(0),
-            snp_in_progress_(),
-            ctx_(ctx),
-            scheduler_(ctx->scheduler_),
-            election_exec_(std::bind(&raft_server::handle_election_timeout, this)),
-            election_task_(),
-            peers_(),
-            rpc_clients_(),
-            role_(srv_role::follower),
-            state_(ctx->state_mgr_->read_state()),
-            log_store_(ctx->state_mgr_->load_log_store()),
-            state_machine_(ctx->state_machine_),
-            l_(ctx->logger_),
-            config_(ctx->state_mgr_->load_config()),
-            srv_to_join_(),
-            conf_to_add_(),
-            lock_(),
-            commit_lock_(),
-            rpc_clients_lock_(),
-            commit_cv_(),
-            stopping_lock_(),
-            ready_to_stop_cv_(),
-            resp_handler_((rpc_handler)std::bind(&raft_server::handle_peer_resp, this, std::placeholders::_1, std::placeholders::_2)),
-            ex_resp_handler_((rpc_handler)std::bind(&raft_server::handle_ext_resp, this, std::placeholders::_1, std::placeholders::_2)){
+        id_(ctx->state_mgr_->server_id()),
+        votes_responded_(0),
+        votes_granted_(0),
+        quick_commit_idx_(0),
+        election_completed_(true),
+        config_changing_(false),
+        catching_up_(false),
+        stopping_(false),
+        steps_to_down_(0),
+        snp_in_progress_(),
+        ctx_(ctx),
+        scheduler_(ctx->scheduler_),
+        election_exec_(std::bind(&raft_server::handle_election_timeout, this)),
+        election_task_(),
+        peers_(),
+        rpc_clients_(),
+        role_(srv_role::follower),
+        state_(ctx->state_mgr_->read_state()),
+        log_store_(ctx->state_mgr_->load_log_store()),
+        state_machine_(ctx->state_machine_),
+        l_(ctx->logger_),
+        config_(ctx->state_mgr_->load_config()),
+        srv_to_join_(),
+        conf_to_add_(),
+        lock_(),
+        commit_lock_(),
+        rpc_clients_lock_(),
+        commit_cv_(),
+        stopping_lock_(),
+        ready_to_stop_cv_(),
+        resp_handler_((rpc_handler)std::bind(&raft_server::handle_peer_resp, this, std::placeholders::_1, std::placeholders::_2)),
+        ex_resp_handler_((rpc_handler)std::bind(&raft_server::handle_ext_resp, this, std::placeholders::_1, std::placeholders::_2)){
             uint seed = (uint)(std::chrono::system_clock::now().time_since_epoch().count() * id_);
             std::default_random_engine engine(seed);
             std::uniform_int_distribution<int32> distribution(ctx->params_->election_timeout_lower_bound_, ctx->params_->election_timeout_upper_bound_);
@@ -102,9 +102,7 @@ namespace cornerstone {
             quick_commit_idx_ = state_->get_commit_idx();
             std::thread commiting_thread = std::thread(std::bind(&raft_server::commit_in_bg, this));
             commiting_thread.detach();
-            if (start_election == true) {
-                restart_election_timer();
-            }
+            restart_election_timer();
             l_->debug(strfmt<30>("server %d started").fmt(id_));
         }
 
